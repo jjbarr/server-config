@@ -1,0 +1,29 @@
+[Unit]
+Description=gotosocial quadlet
+Wants=traefik.container
+
+[Container]
+Network=traefik.network
+Image=docker.io/superseriousbusiness/gotosocial:latest
+Volume=gts.volume:/storage
+Environment="GTS_LETSENCRYPT_ENABLED=false"
+Environment="GTS_HOST=social.ptnote.dev"
+Environment="GTS_ACCOUNT_DOMAIN=ptnote.dev"
+Environment="GTS_DB_TYPE=sqlite"
+Environment="GTS_DB_ADDRESS=/storage/sqlite.db"
+Environment="GTS_WAZERO_COMPILATION_CACHE=/storage/wazero_cache"
+Environment="GTS_TRUSTED_PROXIES=10.89.0.7/32"
+Environment="TZ=America/New_York"
+Label="traefik.enable=true"
+Label="traefik.http.routers.gts.entryPoints=https"
+Label="traefik.http.routers.gts.rule=Host(`social.ptnote.dev`)"
+Label="traefik.http.routers.gts.tls=true"
+Label="traefik.http.routers.gts.tls.certResolver=lets-encrypt"
+Label="traefik.http.services.gts.loadbalancer.server.port=8080"
+
+[Service]
+Restart=always
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target default.target
