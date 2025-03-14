@@ -1,6 +1,6 @@
 [Unit]
 Description=gotosocial quadlet
-Wants=traefik.container
+Wants=network.target
 
 [Container]
 Network=traefik.network
@@ -11,6 +11,8 @@ Environment="GTS_HOST=social.ptnote.dev"
 Environment="GTS_ACCOUNT_DOMAIN=ptnote.dev"
 Environment="GTS_DB_TYPE=sqlite"
 Environment="GTS_DB_ADDRESS=/storage/sqlite.db"
+Environment="GTS_STORAGE_BACKEND=local"
+Environment="GTS_STORAGE_LOCAL_BASE_PATH=/storage/media_storage"
 Environment="GTS_WAZERO_COMPILATION_CACHE=/storage/wazero_cache"
 Environment="GTS_TRUSTED_PROXIES=10.89.0.7/32"
 Environment="GTS_LANDING_PAGE_USER=thoth"
@@ -27,4 +29,4 @@ Restart=always
 TimeoutStartSec=900
 
 [Install]
-WantedBy=multi-user.target default.target
+WantedBy=default.target

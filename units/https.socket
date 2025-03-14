@@ -1,5 +1,4 @@
 [Socket]
-
 ListenStream=0.0.0.0:443
 FileDescriptorName=https
 Service=traefik.service

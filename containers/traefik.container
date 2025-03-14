@@ -1,5 +1,6 @@
 [Unit]
 Description=Traefik quadlet
+Wants=network.target
 Wants=podman.socket
 
 [Container]
@@ -28,4 +29,4 @@ Restart=always
 TimeoutStartSec=900
 
 [Install]
-WantedBy=multi-user.target default.target
+WantedBy=default.target

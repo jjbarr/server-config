@@ -11,16 +11,6 @@ terraform {
   }
 }
 
-variable domain_root {}
-variable do_token {}
-variable pb_api {}
-variable pb_api_secret {}
-
-locals {
-  domain_root = var.domain_root
-  subdomains = ["", "www", "social"]
-}
-
 provider "digitalocean" {
   token = var.do_token
 }
@@ -30,9 +20,15 @@ provider "porkbun" {
   secret_api_key = var.pb_api_secret
 }
 
-resource "digitalocean_project" "ptnote" {
-  name = "ptnote"
-  description = "My personal domain and associated resources."
+locals {
+  hosts = {
+    
+  }
+}
+
+resource "digitalocean_project" "my_servers" {
+  name = "project"
+  description = "My personal resources."
   environment = "Production"
   resources = [
     digitalocean_droplet.server.urn
@@ -41,25 +37,14 @@ resource "digitalocean_project" "ptnote" {
 
 resource "digitalocean_ssh_key" "uruk" {
   name = "sshkey"
-  // this is public information anyways so I'll just put it here.
   public_key = file("~/.ssh/id_ed25519.pub")
 }
 
-resource "digitalocean_custom_image" "coreos" {
-  name = "coreos"
-  url = "https://builds.coreos.fedoraproject.org/prod/streams/stable/builds/41.20250215.3.0/x86_64/fedora-coreos-41.20250215.3.0-digitalocean.x86_64.qcow2.gz"
-  regions = ["nyc1"]
-}
-
-module "build_ignition" {
-  source = "./modules/build_ignition"
-}
 
 resource "digitalocean_droplet" "server" {
   region = "nyc1"
   name = local.domain_root
   size = "s-1vcpu-1gb"
-  image = digitalocean_custom_image.coreos.id
   backups = true
   backup_policy {
     plan = "weekly"
