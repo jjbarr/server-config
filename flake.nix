@@ -3,17 +3,26 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
+    utils.url = "github:numtide/flake-utils";
+    colmena.url = "github:zhaofengli/colmena";
   };
 
-  outputs = { self, nixpkgs }:
-    let pkgs = import nixpkgs { system = "x86_64-linux"; };
-    in {
-      devShells.x86_64-linux.default =
-        pkgs.mkShell {
-          buildInputs = [ pkgs.colmena pkgs.opentofu ];
-        };
-      colmena = (pkgs.callPackage ./hive.nix {inherit pkgs;});
-      
-    };
+  outputs = { self, colmena, nixpkgs, utils }:
+    let
+      per_system = utils.lib.eachDefaultSystem (
+        system :
+        let 
+          pkgs = import nixpkgs {inherit system;};
+        in {
+          devShells = {
+            default = pkgs.mkShell {
+              packages = [ (import colmena) pkgs.opentofu ];
+            };
+          };
+        });
+      global = {
+        colmena = (import ./hive.nix {pkgs = nixpkgs;});
+      };
+    in per_system // global;
 }
 

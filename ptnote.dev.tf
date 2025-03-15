@@ -11,6 +11,10 @@ terraform {
   }
 }
 
+variable "pb_api" {}
+variable "do_token" {}
+variable "pb_api_secret" {}
+
 provider "digitalocean" {
   token = var.do_token
 }
@@ -20,10 +24,9 @@ provider "porkbun" {
   secret_api_key = var.pb_api_secret
 }
 
-locals {
-  hosts = {
-    
-  }
+data "digitalocean_image" "nixos" {
+  name = "nixos-do"
+  source = "user"
 }
 
 resource "digitalocean_project" "my_servers" {
@@ -31,19 +34,14 @@ resource "digitalocean_project" "my_servers" {
   description = "My personal resources."
   environment = "Production"
   resources = [
-    digitalocean_droplet.server.urn
+    digitalocean_droplet.anubis.urn
   ]
 }
 
-resource "digitalocean_ssh_key" "uruk" {
-  name = "sshkey"
-  public_key = file("~/.ssh/id_ed25519.pub")
-}
 
-
-resource "digitalocean_droplet" "server" {
+resource "digitalocean_droplet" "anubis" {
   region = "nyc1"
-  name = local.domain_root
+  name = "anubis"
   size = "s-1vcpu-1gb"
   backups = true
   backup_policy {
@@ -51,64 +49,16 @@ resource "digitalocean_droplet" "server" {
     weekday = "SUN"
     hour = 8
   }
-  ssh_keys = [digitalocean_ssh_key.uruk.fingerprint]
-  user_data = module.build_ignition.rendered_configuration
+  # nixos
+  image = data.digitalocean_image.nixos.id
+  ssh_keys = ["74:6f:4c:0c:16:fd:ee:0b:d8:a1:92:cd:52:be:16:78"]
 }
 
-resource "digitalocean_firewall" "firewall" {
-  name = "server-firewall"
-  droplet_ids = [digitalocean_droplet.server.id]
-  inbound_rule {
-    protocol = "tcp"
-    port_range = "22"
-    source_addresses = ["0.0.0.0/0", "::/0"]
-  }
-  inbound_rule {
-    protocol = "tcp"
-    port_range = "80"
-    source_addresses = ["0.0.0.0/0", "::/0"]
-  }
-  inbound_rule {
-    protocol = "udp"
-    port_range = "80"
-    source_addresses = ["0.0.0.0/0", "::/0"]
-  }
-  inbound_rule {
-    protocol = "tcp"
-    port_range = "443"
-    source_addresses = ["0.0.0.0/0", "::/0"]
-  }
-  inbound_rule {
-    protocol = "udp"
-    port_range = "443"
-    source_addresses = ["0.0.0.0/0", "::/0"]
-  }
-  inbound_rule {
-    protocol = "icmp"
-    source_addresses = ["0.0.0.0/0", "::/0"]
-  }
-  outbound_rule {
-    protocol = "icmp"
-    destination_addresses = ["0.0.0.0/0", "::/0"]
-  }
-  outbound_rule {
-    port_range = "1-65535"
-    protocol = "tcp"
-    destination_addresses = ["0.0.0.0/0", "::/0"]
-  }
-  outbound_rule {
-    port_range = "1-65535"
-    protocol = "udp"
-    destination_addresses = ["0.0.0.0/0", "::/0"]
-  }
-}
-
-resource "porkbun_dns_record" "ipv4" {
-  for_each = toset(local.subdomains)
-  domain = local.domain_root
+resource "porkbun_dns_record" "anubis" {
+  domain = "bahamut.monster"
   priority = 0
-  name = each.key
+  name = "anubis"
   type = "A"
-  content = digitalocean_droplet.server.ipv4_address
+  content = digitalocean_droplet.anubis.ipv4_address
   ttl = 600
 }

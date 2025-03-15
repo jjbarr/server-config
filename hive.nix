@@ -1,22 +1,23 @@
 { pkgs ? <nixpkgs>, ...} : {
-  meta.nixpkgs = pkgs;
-  anubis = {name, nodes, modulesPath, ...} : {
-    deployment = {
-      targetHost = "bahamut.monster";
-      targetPort = 1131;
+  meta.nixpkgs = import pkgs {
+    system = "x86_64-linux";
+    config.allowUnfree=true;
+  };
+  defaults = { pkgs, ... } : {
+    environment.systemPackages = with pkgs; [vim wget curl];
+    networking.firewall = {
+      enable = true;
+      allowedTCPPorts = [ 22 80 443 ];
+      interfaces.lo = {
+        allowedTCPPorts = [ 22 8080 80 443 ];
+      };
+      # for QUIC
+      allowedUDPPortRanges = [{ from = 443; to = 443; }];
     };
-    networking.hostName = name;
-    # Bring in the digitalocean config
-    imports = pkgs.lib.optional (builtins.pathExists ./do-userdata.nix) ./do-userdata.nix ++ [
-      (modulesPath + "/virtualisation/digital-ocean-config.nix")
-    ];
-
-    # allow unprivileged ports
-    boot.kernel.sysctl."net.ipv4.ip_unprivileged_port_start" = 80;
-    
+    services.fail2ban = {enable = true; maxretry = 5;};
     services.openssh = {
       enable = true;
-      ports = [ 1131 ];
+      ports = [ 22 ];
       settings.PasswordAuthentication = false;
       settings.PermitRootLogin = "prohibit-password";
       hostKeys = [ {
@@ -24,21 +25,48 @@
         type = "ed25519";
       } ];
     };
+  };
+  anubis = {name, nodes, modulesPath, ...} : rec {
+    system.stateVersion = "24.11";
+    nixpkgs.system = "x86_64-linux";
+    deployment = {
+      targetHost = "anubis.bahamut.monster";
+    };
+    networking.hostName = name;
+    networking.domain = "bahamut.monster";
+    # Bring in the digitalocean config
+    imports = pkgs.lib.optional (builtins.pathExists ./do-userdata.nix) ./do-userdata.nix ++ [
+      (modulesPath + "/virtualisation/digital-ocean-config.nix")
+    ];
+    # allow unprivileged ports
+    boot.kernel.sysctl."net.ipv4.ip_unprivileged_port_start" = 80;
 
-    users.groups.anubis = {};
+    # web user only gets access to 
+    services.openssh.extraConfig = ''
+      Match User web
+        ChrootDirectory /public
+        ForceCommand internal-sftp
+        AllowTCPForwarding no
+        X11Forwarding no
+        AllowAgentForwarding no
+    '';
+    
+    users.groups.web = {};
     users.users = {
-      anubis = {
+      web = {
         isSystemUser = true;
-        linger = true;
-        group = "anubis";
-        extraGroups = ["podman"];
+        openssh.authorizedKeys.keys = [
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN4yxSed86xXJ3wuBwxX7HrAHrHSkFliBg7s4Nx53NFS joshua@uruk"
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHM0G+Ri6crg86mYVWWDHUiO+FX0GB0di9QkdNvE8SWF joshua@prospero"
+        ];
+        group = "web";
       };
     };
 
     systemd.tmpfiles.rules = [
-      "d /public - anubis anubis"
-      "d /config - anubis anubis"
-      "f /config/acme.json 0600 anubis anubis"
+      "d /public 0775 root web"
+      "d /config - root root"
+      "f /config/acme.json 0600 root root"
     ];
 
     virtualisation.containers.enable = true;
@@ -50,10 +78,9 @@
     virtualisation.oci-containers.containers = {
       traefik = {
         autoStart = true;
-        user = "anubis";
         image = "docker.io/traefik:v3.3";
         # unfortunately required to map the socket in
-        preRunExtraOptions = ["--security-label=disable"];
+        extraOptions = ["--security-opt" "label=disable"];
         cmd = [
           "--api.insecure=true" "--api.dashboard=true" "--providers.docker=true"
           "--providers.docker.exposedbydefault=false"
@@ -68,15 +95,14 @@
           "--certificatesresolvers.lets-encrypt.acme.storage=acme.json"
           "--certificatesresolvers.lets-encrypt.acme.tlschallenge=true "
         ];
-        ports = ["127.0.0.1:8080:8080" "80:80" "443:443"];
+        ports = ["8080:8080" "80:80" "443:443"];
         volumes = [
-          "%t/podman/podman.sock:/var/run/docker.sock:ro"
+          "/run/podman/podman.sock:/var/run/docker.sock:ro"
         ];
       };
       sws = {
         autoStart = true;
         image = "ghcr.io/static-web-server/static-web-server:2";
-        user = "anubis";
         volumes = ["/public:/public:z"];
         environment = {
           SERVER_ROOT="/public";
@@ -88,12 +114,12 @@
         labels = {
           "traefik.enable"="true";
           "traefik.http.routers.sws.entryPoints"="https";
-          "traefik.http.routers.sws.rule"="Host(`bahamut.monster`) || Host(`www.bahamut.monster`)";
+          "traefik.http.routers.sws.rule"="Host(`ptnote.dev`) || Host(`ptnote.dev`)";
           "traefik.http.routers.sws.tls"="true";
           "traefik.http.routers.sws.tls.certResolver"="lets-encrypt";
           "traefik.http.services.sws.loadbalancer.server.port"="8080";
         };
-      };  
+      };
     };
   };
 }
