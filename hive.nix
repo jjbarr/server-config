@@ -1,4 +1,4 @@
-{ pkgs ? <nixpkgs> } : {
+{ pkgs ? <nixpkgs>, ...} : {
   meta.nixpkgs = pkgs;
   anubis = {name, nodes, modulesPath, ...} : {
     deployment = {
@@ -19,12 +19,13 @@
       ports = [ 1131 ];
       settings.PasswordAuthentication = false;
       settings.PermitRootLogin = "prohibit-password";
-      services.openssh.hostKeys = [ {
+      hostKeys = [ {
         path = "/etc/ssh/ssh_host_ed25519_key";
         type = "ed25519";
       } ];
     };
 
+    users.groups.anubis = {};
     users.users = {
       anubis = {
         isSystemUser = true;
@@ -76,7 +77,7 @@
         autoStart = true;
         image = "ghcr.io/static-web-server/static-web-server:2";
         user = "anubis";
-        volumes = "/public:/public:z";
+        volumes = ["/public:/public:z"];
         environment = {
           SERVER_ROOT="/public";
           SERVER_LOG_LEVEL="info";

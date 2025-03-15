@@ -12,7 +12,7 @@
         pkgs.mkShell {
           buildInputs = [ pkgs.colmena pkgs.opentofu ];
         };
-      colmena = (pkgs.callPackage ./hive.nix {});
+      colmena = (import ./hive.nix {inherit pkgs;});
       
     };
 }
