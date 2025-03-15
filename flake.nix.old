@@ -1,9 +1,0 @@
-{
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    colomena.url = "github:zhaofengli/colmena";
-  };
-  ouputs = inputs@{self, nixpkgs, ...} {
-    
-  };
-}

@@ -5,12 +5,15 @@
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
   };
 
-  outputs = { self, nixpkgs, colmena }: {
-    devShells.x86_64-linux.default =
-      let pkgs = nixpkgs.legacyPackages.x86_64-linux;
-      in pkgs.mkShell {
-        buildInputs = [ pkgs.colmena pkgs.opentofu ];
-      };
-  };
+  outputs = { self, nixpkgs }:
+    let pkgs = import nixpkgs { system = "x86_64-linux"; };
+    in {
+      devShells.x86_64-linux.default =
+        pkgs.mkShell {
+          buildInputs = [ pkgs.colmena pkgs.opentofu ];
+        };
+      colmena = (pkgs.callPackage ./hive.nix {});
+      
+    };
 }
 
