@@ -8,11 +8,9 @@
     networking.firewall = {
       enable = true;
       allowedTCPPorts = [ 22 80 443 ];
-      interfaces.lo = {
-        allowedTCPPorts = [ 22 8080 80 443 ];
-      };
       # for QUIC
       allowedUDPPortRanges = [{ from = 443; to = 443; }];
+      checkReversePath = "loose";
     };
     services.fail2ban = {enable = true; maxretry = 5;};
     services.openssh = {
@@ -64,7 +62,8 @@
     };
 
     systemd.tmpfiles.rules = [
-      "d /public 0775 root web"
+      "d /public 0755 root root"
+      "d /public/ptnote.dev 0775 web web"
       "d /config - root root"
       "f /config/acme.json 0600 root root"
     ];
@@ -91,9 +90,9 @@
           "--entrypoints.http.http.redirections.entryPoint.scheme=https"
           "--entryPoints.https"
           "--entryPoints.https.address=:443"
-          "--certificatesresolvers.lets-encrypt.acme.email='jjbarr@ptnote.dev'" 
+          "--certificatesresolvers.lets-encrypt.acme.email=jjbarr@ptnote.dev" 
           "--certificatesresolvers.lets-encrypt.acme.storage=acme.json"
-          "--certificatesresolvers.lets-encrypt.acme.tlschallenge=true "
+          "--certificatesresolvers.lets-encrypt.acme.tlschallenge=true"
         ];
         ports = ["8080:8080" "80:80" "443:443"];
         volumes = [
@@ -103,7 +102,7 @@
       sws = {
         autoStart = true;
         image = "ghcr.io/static-web-server/static-web-server:2";
-        volumes = ["/public:/public:z"];
+        volumes = ["/public/ptnote.dev:/public:z"];
         environment = {
           SERVER_ROOT="/public";
           SERVER_LOG_LEVEL="info";
@@ -114,9 +113,11 @@
         labels = {
           "traefik.enable"="true";
           "traefik.http.routers.sws.entryPoints"="https";
-          "traefik.http.routers.sws.rule"="Host(`ptnote.dev`) || Host(`ptnote.dev`)";
+          "traefik.http.routers.sws.rule"="Host(`www.ptnote.dev`) || Host(`ptnote.dev`)";
           "traefik.http.routers.sws.tls"="true";
           "traefik.http.routers.sws.tls.certResolver"="lets-encrypt";
+          "traefik.http.middlewares.gtp.headers.customresponseheaders.X-Clacks-Overhead"="GNU Terry Pratchett";
+          "traefik.http.routers.sws.middlewares"="gtp@docker";
           "traefik.http.services.sws.loadbalancer.server.port"="8080";
         };
       };
