@@ -33,9 +33,17 @@
 
   # metrics with grafana
   services.alloy.enable = true;
+  #alloy runs as nobody by default, which is... not correct
+  systemd.services.alloy = {
+    serviceConfig.DynamicUser = lib.mkForce false;
+    serviceConfig.User = "alloy";
+    serviceConfig.Group = "alloy";
+  };
   age.secrets.graf-apikey.rekeyFile = ./anubis/graf-apikey.age;
   #this is a hack but I'm so done
-  age.secrets.graf-apikey.mode = "444";
+  age.secrets.graf-apikey.mode = "440";
+  age.secrets.graf-apikey.owner = "alloy";
+  age.secrets.graf-apikey.group = "alloy";
   environment.etc."alloy/config.alloy".text =
     builtins.replaceStrings ["$APIKEY"] [config.age.secrets.graf-apikey.path]
       (lib.strings.fileContents ./anubis/config.alloy);
@@ -50,6 +58,7 @@
     '';
   
   users.groups.web = {};
+  users.groups.alloy = {};
   users.users = {
     web = {
       isSystemUser = true;
@@ -58,6 +67,11 @@
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHM0G+Ri6crg86mYVWWDHUiO+FX0GB0di9QkdNvE8SWF joshua@prospero"
       ];
       group = "web";
+    };
+    alloy = {
+      isSystemUser = true;
+      group = "alloy";
+      extraGroups = ["utmp" "systemd-journal"];
     };
   };
   
