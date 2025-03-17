@@ -1,8 +1,8 @@
-{ pkgs, ...} : {
+{ pkgs, agenix, agenix-rekey} : {
   meta.nixpkgs = import pkgs {
     system = "x86_64-linux";
     #overlays = [ragenix.overlays.default];
-    config.allowUnfree=true;
+    config.allowUnfree = true;
   };
   defaults = { pkgs, ... } : {
     environment.systemPackages = with pkgs; [vim wget curl];
@@ -25,5 +25,5 @@
       } ];
     };
   };
-  anubis = (import ./anubis.nix);
+  anubis = (import ./anubis.nix) { inherit agenix agenix-rekey; };
 }

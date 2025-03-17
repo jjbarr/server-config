@@ -1,4 +1,10 @@
+{agenix, agenix-rekey}:
 {name, nodes, pkgs, modulesPath, config, ...} : {
+  imports = [
+    (modulesPath + "/virtualisation/digital-ocean-config.nix")
+    agenix.nixosModules.default
+    agenix-rekey.nixosModules.default
+  ];
   system.stateVersion = "24.11";
   nixpkgs.system = "x86_64-linux";
   deployment = {
@@ -6,15 +12,29 @@
   };
   networking.hostName = name;
   networking.domain = "bahamut.monster";
-  # Bring in the digitalocean config
-  imports = [
-    (modulesPath + "/virtualisation/digital-ocean-config.nix")
-  ];
-    
+  
   # the firewall breaks do-agent anyways. C'est useless.
   services.do-agent.enable = false;
   # allow unprivileged ports
   boot.kernel.sysctl."net.ipv4.ip_unprivileged_port_start" = 80;
+
+  age.rekey = {
+    storageMode = "local";
+    localStorageDir = ./. + "secrets/rekeyed/anubis";
+    hostPubkey =
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEwsFwNLN4PWqoh3ZmUb82dZzxI8510dbY5c/iUglSrs";
+    masterIdentities = [
+      {
+        identity = "/home/joshua/secinfo/server-key.txt";
+        pubkey = "age1l4rhfgte20haxhcp7xqzzr6s5n0ted6f48led0qmfgpn4sx2evesacvs0q";
+      }
+    ];
+  };
+
+  # metrics with grafana
+  services.alloy.enable = true;
+  age.secrets.graf-apikey.rekeyFile = ./anubis/graf-apikey.age;
+  environment.etc."alloy/config.alloy".source = ./anubis/config.alloy;
   
   # web user only gets access to uploads
   services.openssh.extraConfig = ''
