@@ -1,5 +1,5 @@
 local.file "apikey" {
-  filename = "/run/agenix/graf-apikey"
+  filename = "$APIKEY"
 }
 
 prometheus.exporter.self "alloy_check" { }

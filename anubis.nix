@@ -1,5 +1,5 @@
 {agenix, agenix-rekey}:
-{name, nodes, pkgs, modulesPath, config, ...} : {
+{name, nodes, pkgs, lib, modulesPath, config, ...} : {
   imports = [
     (modulesPath + "/virtualisation/digital-ocean-config.nix")
     agenix.nixosModules.default
@@ -20,7 +20,7 @@
 
   age.rekey = {
     storageMode = "local";
-    localStorageDir = ./. + "secrets/rekeyed/anubis";
+    localStorageDir = ./.secrets/rekeyed/anubis;
     hostPubkey =
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEwsFwNLN4PWqoh3ZmUb82dZzxI8510dbY5c/iUglSrs";
     masterIdentities = [
@@ -34,8 +34,11 @@
   # metrics with grafana
   services.alloy.enable = true;
   age.secrets.graf-apikey.rekeyFile = ./anubis/graf-apikey.age;
-  environment.etc."alloy/config.alloy".source = ./anubis/config.alloy;
-  
+  #this is a hack but I'm so done
+  age.secrets.graf-apikey.mode = "444";
+  environment.etc."alloy/config.alloy".text =
+    builtins.replaceStrings ["$APIKEY"] [config.age.secrets.graf-apikey.path]
+      (lib.strings.fileContents ./anubis/config.alloy);
   # web user only gets access to uploads
   services.openssh.extraConfig = ''
       Match User web
