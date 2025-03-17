@@ -32,6 +32,9 @@
     };
     networking.hostName = name;
     networking.domain = "bahamut.monster";
+    # This is required because the DO monitoring agent speaks over a link-local
+    # veth interface. I think.
+    networking.firewall.trustedInterfaces = [ "veth0" "veth1" ];
     # Bring in the digitalocean config
     imports = pkgs.lib.optional (builtins.pathExists ./do-userdata.nix) ./do-userdata.nix ++ [
       (modulesPath + "/virtualisation/digital-ocean-config.nix")
@@ -39,7 +42,7 @@
     # allow unprivileged ports
     boot.kernel.sysctl."net.ipv4.ip_unprivileged_port_start" = 80;
 
-    # web user only gets access to 
+    # web user only gets access to uploads
     services.openssh.extraConfig = ''
       Match User web
         ChrootDirectory /public
