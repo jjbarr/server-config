@@ -12,17 +12,21 @@
       per_system = utils.lib.eachDefaultSystem (
         system :
         let 
-          pkgs = import nixpkgs {inherit system;};
+          pkgs = import nixpkgs {
+            inherit system;
+           };
         in {
           devShells = {
             default = pkgs.mkShell {
-              packages = [ (import colmena) pkgs.opentofu ];
+              packages = [ pkgs.sops (import colmena) pkgs.opentofu ];
             };
           };
         });
       global = {
-        colmena = (import ./hive.nix {pkgs = nixpkgs;});
+        colmena = (import ./hive.nix {
+          pkgs = nixpkgs;
+          inherit sops-nix;
+        });
       };
     in per_system // global;
 }
-
