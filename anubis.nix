@@ -79,13 +79,14 @@
       group = "haproxy";
       extraGroups = ["acme"];
     };
+    lighttpd = {
+      extraGroups = ["web"];
+    };
   };
   
   systemd.tmpfiles.rules = [
     "d /public 0755 root root"
     "d /public/ptnote.dev 0775 web web"
-    "d /config - root root"
-    "f /config/acme.json 0600 root root"
   ];
 
   age.secrets.pb-dns.rekeyFile = ./anubis/pb_dns.age;
@@ -154,25 +155,7 @@
     };
   };
 
-  virtualisation.containers.enable = true;
-  virtualisation.podman = {
-    enable = true;
-    dockerCompat = true;
-    defaultNetwork.settings.dns_enabled = true;
-  };
-  virtualisation.oci-containers.containers = {
-    sws = {
-      autoStart = true;
-      image = "ghcr.io/static-web-server/static-web-server:2";
-      volumes = ["/public/ptnote.dev:/public:z"];
-      ports = ["8091:8091"];
-      environment = {
-        SERVER_ROOT="/public";
-        SERVER_LOG_LEVEL="info";
-        SERVER_LOG_X_REAL_IP="true";
-        SERVER_LOG_FORWARDED_FOR="true";
-        SERVER_PORT="8091";
-      };
-    };
-  };
+  services.lighttpd.enable = true;
+  services.lighttpd.port = 8091;
+  services.lighttpd.document-root = "/public/ptnote.dev";
 }
