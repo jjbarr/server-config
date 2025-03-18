@@ -30,7 +30,7 @@
       }
     ];
   };
-
+  
   # metrics with grafana
   services.alloy.enable = true;
   #alloy runs as nobody by default, which is... not correct
@@ -59,6 +59,7 @@
   
   users.groups.web = {};
   users.groups.alloy = {};
+  users.groups.haproxy = {};
   users.users = {
     web = {
       isSystemUser = true;
@@ -73,6 +74,11 @@
       group = "alloy";
       extraGroups = ["utmp" "systemd-journal"];
     };
+    haproxy = {
+      isSystemUser = true;
+      group = "haproxy";
+      extraGroups = ["acme"];
+    };
   };
   
   systemd.tmpfiles.rules = [
@@ -82,6 +88,72 @@
     "f /config/acme.json 0600 root root"
   ];
 
+  age.secrets.pb-dns.rekeyFile = ./anubis/pb_dns.age;
+  age.secrets.pb-dns.owner = "acme";
+  security.acme = {
+    acceptTerms = true;
+    defaults.email = "jjbarr+acme@ptnote.dev";
+    defaults.dnsProvider = "porkbun";
+    defaults.environmentFile = config.age.secrets.pb-dns.path; 
+    certs."ptnote.dev" = {
+      extraDomainNames = ["*.ptnote.dev"];
+    };
+  };
+
+  services.haproxy.enable = true;
+  services.haproxy.user = "haproxy";
+  services.haproxy.group = "haproxy";
+  services.haproxy.config = ''
+  global
+    ssl-default-bind-options ssl-min-ver TLSv1.2
+  defaults
+    timeout connect 5s
+    timeout client 1m
+    timeout server 1m
+  crt-store ptnote
+    crt-base /var/lib/acme/ptnote.dev
+    key-base /var/lib/acme/ptnote.dev
+    load crt "cert.pem" key "key.pem"
+  frontend main
+    mode http
+    bind *:80
+    bind *:443 ssl crt "@ptnote/cert.pem"
+    http-request redirect scheme https unless { ssl_fc }
+    http-response set-header Strict-Transport-Security "max-age=259200; includeSubDomains; preload;"
+    http-response set-header X-Clacks-Overhead "GNU Terry Pratchett"
+    use_backend static if { req.hdr(host) -i ptnote.dev }
+    use_backend static if { req.hdr(host) -i www.ptnote.dev }
+  frontend stats
+    mode http
+    http-request use-service prometheus-exporter if { path /metrics }
+    bind *:8404
+    stats enable
+    stats uri /stats
+    stats refresh 10s
+    stats admin if LOCALHOST
+  backend static
+    mode http
+    option forwardfor
+    server s1 127.0.0.1:8091 check
+  '';
+  systemd.timers."refresh-haproxy" = {
+    wantedBy = ["timers.target"];
+    timerConfig = {
+      OnCalendar = "monthly";
+      Unit = "refresh-haproxy.service";
+    };
+  };
+  systemd.services."refresh-haproxy" = {
+    script = ''
+    set -eu
+    ${pkgs.systemd}/bin/systemctl try-reload-or-restart haproxy.service
+    '';
+    serviceConfig = {
+      Type = "oneshot";
+      User = "root";
+    };
+  };
+
   virtualisation.containers.enable = true;
   virtualisation.podman = {
     enable = true;
@@ -89,50 +161,17 @@
     defaultNetwork.settings.dns_enabled = true;
   };
   virtualisation.oci-containers.containers = {
-    traefik = {
-      autoStart = true;
-      image = "docker.io/traefik:v3.3";
-      # unfortunately required to map the socket in
-      extraOptions = ["--security-opt" "label=disable"];
-      cmd = [
-        "--api.insecure=true" "--api.dashboard=true" "--providers.docker=true"
-        "--providers.docker.exposedbydefault=false"
-        "--accesslog=true"
-        "--entryPoints.http"
-        "--entryPoints.http.address=:80"
-        "--entrypoints.http.http.redirections.entryPoint.to=https"
-        "--entrypoints.http.http.redirections.entryPoint.scheme=https"
-        "--entryPoints.https"
-        "--entryPoints.https.address=:443"
-        "--certificatesresolvers.lets-encrypt.acme.email=jjbarr@ptnote.dev" 
-        "--certificatesresolvers.lets-encrypt.acme.storage=acme.json"
-        "--certificatesresolvers.lets-encrypt.acme.tlschallenge=true"
-      ];
-      ports = ["8080:8080" "80:80" "443:443"];
-      volumes = [
-        "/run/podman/podman.sock:/var/run/docker.sock:ro"
-      ];
-    };
     sws = {
       autoStart = true;
       image = "ghcr.io/static-web-server/static-web-server:2";
       volumes = ["/public/ptnote.dev:/public:z"];
+      ports = ["8091:8091"];
       environment = {
         SERVER_ROOT="/public";
         SERVER_LOG_LEVEL="info";
         SERVER_LOG_X_REAL_IP="true";
         SERVER_LOG_FORWARDED_FOR="true";
-        SERVER_PORT="8080";
-      };
-      labels = {
-        "traefik.enable"="true";
-        "traefik.http.routers.sws.entryPoints"="https";
-        "traefik.http.routers.sws.rule"="Host(`www.ptnote.dev`) || Host(`ptnote.dev`)";
-        "traefik.http.routers.sws.tls"="true";
-        "traefik.http.routers.sws.tls.certResolver"="lets-encrypt";
-        "traefik.http.middlewares.gtp.headers.customresponseheaders.X-Clacks-Overhead"="GNU Terry Pratchett";
-        "traefik.http.routers.sws.middlewares"="gtp@docker";
-        "traefik.http.services.sws.loadbalancer.server.port"="8080";
+        SERVER_PORT="8091";
       };
     };
   };
