@@ -12,7 +12,11 @@
   };
   networking.hostName = name;
   networking.domain = "bahamut.monster";
-  
+  # this is a pretty gross hack that I'm not 100% sure will work?
+  networking.extraHosts = ''
+    3.131.182.129  logs-prod-036.grafana.net
+  '';
+    
   # the firewall breaks do-agent anyways. C'est useless.
   services.do-agent.enable = false;
   # allow unprivileged ports
@@ -72,7 +76,7 @@
     alloy = {
       isSystemUser = true;
       group = "alloy";
-      extraGroups = ["utmp" "systemd-journal"];
+      extraGroups = ["adm" "systemd-journal"];
     };
     haproxy = {
       isSystemUser = true;
