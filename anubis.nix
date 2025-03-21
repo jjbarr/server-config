@@ -12,13 +12,10 @@
   };
   networking.hostName = name;
   networking.domain = "bahamut.monster";
-  # this is a pretty gross hack that I'm not 100% sure will work?
-  networking.extraHosts = ''
-    3.131.182.129  logs-prod-036.grafana.net
-  '';
-    
   # the firewall breaks do-agent anyways. C'est useless.
   services.do-agent.enable = false;
+  services.resolved.enable = true;
+  services.resolved.extraConfig = "DNSStubListenerExtra=[::]:53";
   # allow unprivileged ports
   boot.kernel.sysctl."net.ipv4.ip_unprivileged_port_start" = 80;
 
@@ -111,16 +108,20 @@
   services.haproxy.config = ''
   global
     ssl-default-bind-options ssl-min-ver TLSv1.2
+    log 127.0.0.1:514 local0
   defaults
     timeout connect 5s
     timeout client 1m
     timeout server 1m
+    log global
+    option httplog
   crt-store ptnote
     crt-base /var/lib/acme/ptnote.dev
     key-base /var/lib/acme/ptnote.dev
     load crt "cert.pem" key "key.pem"
   frontend main
     mode http
+    option forwardfor
     bind *:80
     bind *:443 ssl crt "@ptnote/cert.pem"
     http-request redirect scheme https unless { ssl_fc }
@@ -138,7 +139,6 @@
     stats admin if LOCALHOST
   backend static
     mode http
-    option forwardfor
     server s1 127.0.0.1:8091 check
   '';
   systemd.timers."refresh-haproxy" = {
@@ -161,5 +161,9 @@
 
   services.lighttpd.enable = true;
   services.lighttpd.port = 8091;
+  services.lighttpd.enableModules = ["mod_extforward"];
+  services.lighttpd.extraConfig = ''
+  extforward.forwarder = ("127.0.0.1" => "trust")
+  '';
   services.lighttpd.document-root = "/public/ptnote.dev";
 }
