@@ -14,8 +14,8 @@
   networking.domain = "bahamut.monster";
   # the firewall breaks do-agent anyways. C'est useless.
   services.do-agent.enable = false;
-  services.resolved.enable = true;
-  services.resolved.extraConfig = "DNSStubListenerExtra=[::]:53";
+  networking.resolvconf.enable = true;
+  networking.resolvconf.extraOptions = ["no-aaaa" "single-request"];
   # allow unprivileged ports
   boot.kernel.sysctl."net.ipv4.ip_unprivileged_port_start" = 80;
 
