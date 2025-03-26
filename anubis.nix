@@ -39,6 +39,9 @@
     serviceConfig.DynamicUser = lib.mkForce false;
     serviceConfig.User = "alloy";
     serviceConfig.Group = "alloy";
+    environment = {
+      GODEBUG = "netdns=cgo";
+    };
   };
   age.secrets.graf-apikey.rekeyFile = ./anubis/graf-apikey.age;
   #this is a hack but I'm so done
